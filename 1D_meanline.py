@@ -23,8 +23,8 @@ rho = p0_in/(R*T0_in)
 # ----------------------------
 # Operating point (baseline)
 # ----------------------------
-N = 50000.0          # rpm
-m = 0.25             # kg/s
+N = 70000.0          # rpm
+m = 0.20             # kg/s
 omega = 2*np.pi*(N/60.0)
 U = omega * r_m      # blade speed
 V_ax = m/(rho*A_in)  # axial velocity
@@ -58,6 +58,23 @@ PR_base, Vt2i, Vt2, dh, dT = PR_from_params(*baseline)
 
 print("Baseline PR =", PR_base)
 
+
+RoationalSpeeds = [70000,60000,50000,4000]
+mass_flowrates = [0.20,0.30]
+rows = []
+for Ns in RoationalSpeeds:
+    for mdot in mass_flowrates :
+        V_ax = mdot/(rho*A_in)
+        omega = 2*np.pi*(Ns/60.0)
+        U = omega * r_m 
+        PRs , *_ = PR_from_params(slip=0.92, eta_c=0.76)
+        rows.append({"Rotational_Speed(RPM)" : Ns,
+                    "mass_flowrate" : m,
+                    "PR": round(PRs,4)})
+df_mdot = pd.DataFrame(rows)
+df_mdot.to_csv("Mass_flowrate vs Pr_at_given_RPM")
+    
+
 # ----------------------------
 # Sensitivity: slip factor σ
 # ----------------------------
@@ -69,7 +86,7 @@ for s in slips:
                  "PR": round(PR,4),
                  "%ΔPR_vs_baseline": round(100*(PR/PR_base-1),2)})
 df_slip = pd.DataFrame(rows)
-print(df_slip)
+df_slip.to_csv("Slip_vs_Pr")
 
 # ----------------------------
 # Sensitivity: efficiency η_c
@@ -82,4 +99,4 @@ for eta in etas:
                  "PR": round(PR,4),
                  "%ΔPR_vs_baseline": round(100*(PR/PR_base-1),2)})
 df_eta = pd.DataFrame(rows)
-print(df_eta)
+df_eta.to_csv("Eta_vs_Pr")
