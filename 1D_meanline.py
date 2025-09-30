@@ -1,66 +1,85 @@
 import numpy as np
+import pandas as pd
 
-# ---- Known geometry ----
-r_tip_in = 23e-3     # m
-r_hub_in = 7.82e-3   # m
-r_tip_out = 33e-3    # m
-r_hub_out = 18.31e-3 # m
-b_in = r_tip_in - r_hub_in
-b_out = r_tip_out - r_hub_out
-rm = 0.02844         # mean radius [m]
+# ----------------------------
+# Geometry and constants
+# ----------------------------
+r_tip_in = 23e-3
+r_hub_in = 7.82e-3
+r_tip_out = 33e-3
+r_hub_out = 18.31e-3
+r_m = 28.443e-3   # mean radius
+A_in = np.pi*(r_tip_in**2 - r_hub_in**2)
 
-beta1 = np.deg2rad(90.0)    # inlet blade angle
-beta2 = np.deg2rad(49.13)   # outlet blade angle
+beta2 = np.deg2rad(49.13)  # outlet blade angle
 
-# Gas properties
 gamma = 1.4
 R = 287.0
-cp = gamma * R / (gamma - 1)
+cp = 1005.0
+T0_in = 300.0
+p0_in = 101325.0
+rho = p0_in/(R*T0_in)
 
-# Inlet conditions
-T0_in = 300.0   # K
-p0_in = 1e5     # Pa
-rho_in = p0_in / (R * T0_in)
+# ----------------------------
+# Operating point (baseline)
+# ----------------------------
+N = 50000.0          # rpm
+m = 0.25             # kg/s
+omega = 2*np.pi*(N/60.0)
+U = omega * r_m      # blade speed
+V_ax = m/(rho*A_in)  # axial velocity
+V_theta1 = 0.0
 
-
-def compressor_point(N_rpm, m_dot):
-    # Geometry
-    A_in = np.pi * (r_tip_in**2 - r_hub_in**2)
-    A_out = np.pi * (r_tip_out**2 - r_hub_out**2)
+# ----------------------------
+# Function to compute PR
+# ----------------------------
+def PR_from_params(slip=0.92, eta_c=0.76):
+    # velocity triangle
+    V_theta2_ideal = U - V_ax/np.tan(beta2)
+    V_theta2 = slip * V_theta2_ideal
     
-   
-    V_ax = m_dot / (rho_in * A_in)
-    
-    U = 2*np.pi * (N_rpm/60) * rm
-    
-    V_theta1 = 0.0
-    
-    V_theta2 = U - V_ax/np.tan(beta2)
-    
-
+    # enthalpy rise (Euler)
     delta_h = U*(V_theta2 - V_theta1)
+    
+    # temperature rise
     delta_T = delta_h / cp
     
-    # Pressure ratio (the assumed issentropic efficiency is 0.75, theoretically  it could upto to 0.9, but we will test it for multiple values)
-    eta_c = 0.75
-    PR = (1 + eta_c*delta_T/T0_in)**(gamma/(gamma-1))
+    # PR using isentropic efficiency
+    T02s_over_T01 = 1 + eta_c * delta_T / T0_in
+    PR = T02s_over_T01**(gamma/(gamma-1))
     
-    return {
-        "N_rpm": N_rpm,
-        "m_dot": m_dot,
-        "U": U,
-        "V_ax": V_ax,
-        "V_theta2": V_theta2,
-        "delta_h": delta_h,
-        "delta_T": delta_T,
-        "PR": PR
-    }
+    return PR, V_theta2_ideal, V_theta2, delta_h, delta_T
 
+# ----------------------------
+# Baseline case
+# ----------------------------
+baseline = (0.92, 0.76)  # (slip, eta_c)
+PR_base, Vt2i, Vt2, dh, dT = PR_from_params(*baseline)
 
-N_list = [70000]        # rpm
-m_list = [0.2]             # kg/s
+print("Baseline PR =", PR_base)
 
-for N in N_list:
-    for m in m_list:
-        result = compressor_point(N, m)
-        print(result)
+# ----------------------------
+# Sensitivity: slip factor σ
+# ----------------------------
+slips = np.linspace(0.85, 0.98, 6)
+rows = []
+for s in slips:
+    PR, *_ = PR_from_params(slip=s, eta_c=baseline[1])
+    rows.append({"sigma": round(s,3),
+                 "PR": round(PR,4),
+                 "%ΔPR_vs_baseline": round(100*(PR/PR_base-1),2)})
+df_slip = pd.DataFrame(rows)
+print(df_slip)
+
+# ----------------------------
+# Sensitivity: efficiency η_c
+# ----------------------------
+etas = np.linspace(0.65, 0.82, 8)
+rows = []
+for eta in etas:
+    PR, *_ = PR_from_params(slip=baseline[0], eta_c=eta)
+    rows.append({"eta_c": round(eta,3),
+                 "PR": round(PR,4),
+                 "%ΔPR_vs_baseline": round(100*(PR/PR_base-1),2)})
+df_eta = pd.DataFrame(rows)
+print(df_eta)
