@@ -67,12 +67,13 @@ for Ns in RoationalSpeeds:
         V_ax = mdot/(rho*A_in)
         omega = 2*np.pi*(Ns/60.0)
         U = omega * r_m 
-        PRs , *_ = PR_from_params(slip=0.92, eta_c=0.76)
+        PRs , *_ = PR_from_params(slip=0.85, eta_c=0.76)
         rows.append({"Rotational_Speed(RPM)" : Ns,
-                    "mass_flowrate" : m,
+                    "mass_flowrate" : mdot,
                     "PR": round(PRs,4)})
 df_mdot = pd.DataFrame(rows)
-df_mdot.to_csv("Mass_flowrate vs Pr_at_given_RPM")
+
+df_mdot.to_csv("Mass_flowrate vs Pr_at_given_RPM", index=False)
     
 
 # ----------------------------
